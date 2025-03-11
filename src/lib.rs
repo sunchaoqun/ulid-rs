@@ -77,6 +77,8 @@ pub(crate) use bitmask;
 pub struct Ulid(pub u128);
 
 impl Ulid {
+    /// few bits from random portion
+    pub const ENTROPY_BITS: u8 = 4;
     /// The number of bits in a Ulid's time portion
     pub const TIME_BITS: u8 = 48;
     /// The number of bits in a Ulid's random portion
@@ -90,7 +92,8 @@ impl Ulid {
     /// ```rust
     /// use ulid::Ulid;
     ///
-    /// let ulid = Ulid::from_string("01D39ZY06FGSCTVN4T2V9PKHFZ").unwrap();
+    /// //let ulid = Ulid::from_string("01D39ZY06FGSCTVN4T2V9PKHFZ").unwrap();
+    /// let ulid = Ulid::from_string("7HD39ZY06FGSCTVN4T2V9PKHFZ").unwrap();
     ///
     /// let ulid2 = Ulid::from_parts(ulid.timestamp_ms(), ulid.random());
     ///
@@ -99,7 +102,8 @@ impl Ulid {
     pub const fn from_parts(timestamp_ms: u64, random: u128) -> Ulid {
         let time_part = (timestamp_ms & bitmask!(Self::TIME_BITS)) as u128;
         let rand_part = random & bitmask!(Self::RAND_BITS);
-        Ulid((time_part << Self::RAND_BITS) | rand_part)
+        let entropy_part = random & ((1u128 << Self::ENTROPY_BITS) - 1);
+        Ulid(entropy_part.wrapping_shl((128 - Self::ENTROPY_BITS) as u32) | time_part << Self::RAND_BITS | rand_part)
     }
 
     /// Creates a Ulid from a Crockford Base32 encoded string
@@ -159,7 +163,9 @@ impl Ulid {
     /// # }
     /// ```
     pub const fn timestamp_ms(&self) -> u64 {
-        (self.0 >> Self::RAND_BITS) as u64
+        // clear top entropy bits
+        let masked = self.0 << Ulid::ENTROPY_BITS >> Ulid::ENTROPY_BITS;
+        (masked >> Self::RAND_BITS) as u64
     }
 
     /// Gets the random section of this ulid

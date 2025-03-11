@@ -70,8 +70,8 @@ impl Ulid {
             .as_millis();
         let timebits = (timestamp & bitmask!(Self::TIME_BITS)) as u64;
 
-        let msb = timebits << 16 | u64::from(source.gen::<u16>());
         let lsb = source.gen::<u64>();
+        let msb = (lsb & bitmask!(crate::Ulid::ENTROPY_BITS)) << (64 - crate::Ulid::ENTROPY_BITS) | timebits << 16 | u64::from(source.gen::<u16>());
         Ulid::from((msb, lsb))
     }
 
